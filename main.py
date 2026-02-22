@@ -44,9 +44,9 @@ def set_boundaries():
     #pressures[mask] =50
 
 
-def perturb(intensity, radius=0.01):
+def perturb(intensity, radius=0.01, x=0,y=0):
     global pressures
-    mask = (xcoordinates**2 + ycoordinates**2) <= radius**2
+    mask = ((xcoordinates-x)**2 + (ycoordinates-y)**2) <= radius**2
     pressures[mask] = intensity
 
 def pressure_color():
@@ -85,7 +85,16 @@ def compute_fourrier(fourrier,time):
     res = 0
     for f in fourrier:
         res+=2* cos(f[1] * time * 2 * np.pi)  *f[0]
+
     return res
+def apply_reflective_boundary():
+    # left & right
+    pressures[0, :]  = pressures[1, :]
+    pressures[-1, :] = pressures[-2, :]
+
+    # top & bottom
+    pressures[:, 0]  = pressures[:, 1]
+    pressures[:, -1] = pressures[:, -2]
 
 def main():
     pg.init()
@@ -99,7 +108,9 @@ def main():
     if showing:
         window = pg.display.set_mode(window_dimensions)
 
-    fourrier = [(1,600),(1,300)]
+
+    sources = [(4,-15), (-4,-8), (10,7), (-5,3)]
+    fourrier = [[(2,600)], [(1.67,670)], [(3, 420)], [(1,1000)]]
 
     #perturb(10,0.05)
     time = 0
@@ -108,13 +119,14 @@ def main():
     print(interval)
     running = True
     set_boundaries()
-    microphones = [(0,10),(0,0),(0,-10)]
+    microphones = [(0,10),(0,0),(0,-15)]
 
     times = []
     measurements = [[] for i in range(len(microphones))]
 
     pg.font.init()
     deflt = pg.font.Font(None,20)
+    time_start = 0
     
     if showing:
         while running and time <= 0.1:
@@ -123,7 +135,8 @@ def main():
             timetxt = deflt.render(f"time : {time}", True, (255,255,255))
             #timetxt = pg.font.(f"time : {time}")
             #print(time)
-            perturb(compute_fourrier(fourrier,time),0.1)
+            for s,f in zip(sources,fourrier):
+                perturb(compute_fourrier(f,time),0.1,s[0],s[1])
             
         
             
@@ -135,6 +148,7 @@ def main():
             #perturb(0.1)
             update_gradients()
             update_pressures()
+            apply_reflective_boundary()
             
             times.append(time)
             for i,point_to_measure in enumerate(microphones):
@@ -143,6 +157,9 @@ def main():
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     running = False 
+                if event.type == pg.KEYDOWN:
+                    if event.key == pg.K_r:
+                        time_start = time
 
             window.blit(surf_sound, (0,0))
             for point_to_measure in microphones:
@@ -157,21 +174,11 @@ def main():
     else:
         i=0
         while time < 0.05:
-            time += DT
-            i+=1
-            if i%100 == 0:
-                print(time)
-            
-            perturb(compute_fourrier(fourrier,time),0.1)
-            
-            #perturb(0.1)
-            update_gradients()
-            update_pressures()
-            
-            times.append(time)
-            measurements.append(measure_at(point_to_measure[0],point_to_measure[1]))
-        
+            pass
+
     pg.quit()
+
+
 
     for m in measurements:
         plt.plot(times,m)
